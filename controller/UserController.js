@@ -114,11 +114,14 @@ async function signIn(req, res, next) {
 async function editProfile(req, res, next) {
   try {
 
-    const { id } = req.user
-    const { name, userName, oldpassword, newpassword, confirmPassword, email, address, phoneNumber, status, isAdmin } = req.body
+
+    const { name, userName, oldpassword, newpassword, confirmPassword, email, address, phoneNumber, status, isAdmin, id } = req.body
     const isEmail = /[^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+/;
     const isPassword = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$ %^&*-]).{8,}$/;
-    const beforeUpdate = await Customer.findOne({ where: { id } })
+    let beforeUpdate;
+    req.user.isAdmin === "Admin" ?
+      beforeUpdate = await Customer.findOne({ where: { id } }) : beforeUpdate = await Customer.findOne({ where: { id: req.user.id } })
+
     let newHashPassword;
     if (!beforeUpdate) return res.status(400).json({ message: `This supplier is not found` })
 
@@ -174,7 +177,7 @@ async function editProfile(req, res, next) {
       isAdmin: isAdmin || beforeUpdate.isAdmin
     }
 
-    await Customer.update(sendData, { where: { id } })
+    req.user.isAdmin === 'Admin' ? await Customer.update(sendData, { where: { id } }) : await Customer.update(sendData, { where: { id: req.user.id } })
     res.status(200).json({ message: `Updated` })
 
   } catch (err) {

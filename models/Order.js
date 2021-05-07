@@ -32,7 +32,7 @@ module.exports = (sequelize, DataTypes) => {
         name: 'orderId',
         allowNull: false
       },
-      onDlelete: 'RESTRICT',
+      onDelete: 'RESTRICT',
       onUpdate: 'RESTRICT'
     })
     Order.belongsTo(models.Customer,
@@ -41,7 +41,7 @@ module.exports = (sequelize, DataTypes) => {
           name: 'customerId',
           allowNull: false,
         },
-        onDlelete: 'RESTRICT',
+        onDelete: 'RESTRICT',
         onUpdate: 'RESTRICT'
       })
   }

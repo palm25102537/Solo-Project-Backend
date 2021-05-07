@@ -20,7 +20,9 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: {
           name: `transportId`,
           allowNull: false
-        }
+        },
+        onDelete: 'RESTRICT',
+        onUpdate: 'RESTRICT'
       })
   }
 

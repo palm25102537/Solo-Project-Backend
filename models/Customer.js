@@ -35,7 +35,7 @@ module.exports = (sequelize, DataTypes) => {
           name: 'customerId',
           allowNull: false,
         },
-        onDlelete: 'RESTRICT',
+        onDelete: 'RESTRICT',
         onUpdate: 'RESTRICT'
       })
   }
