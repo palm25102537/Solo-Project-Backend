@@ -20,7 +20,8 @@ module.exports = (sequelize, DataTypes) => {
             values: ['Member', 'Deleted']
           }),
         allowNull: false
-      }
+      },
+      picture: DataTypes.STRING
     },
     {
       tableName: 'customers',

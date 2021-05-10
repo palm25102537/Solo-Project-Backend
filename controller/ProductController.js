@@ -4,8 +4,8 @@ const ValidateError = require('../middlewares/ValidateError')
 async function createProduct(req, res, next) {
   const transaction = await sequelize.transaction()
   const { product } = req.body
-  try {
 
+  try {
 
     for (key of product) {
       const isURL = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()!@:%_\+.~#?&\/\/=]*)/
@@ -22,7 +22,7 @@ async function createProduct(req, res, next) {
     }
     const insertData = await Promise.all(product.map((item) => {
       item.status = 'Avaliable'
-      item.promotion = "No promotion"
+      item.description = item.description || 'Please insert the descrtiption'
       return item
     }))
 
@@ -82,30 +82,28 @@ async function getProductBy(req, res, next) {
 async function editProduct(req, res, next) {
 
   try {
+
     const { id } = req.params
     const { name, price, status, description, amount, supplierId, promotion, picture } = req.body
+    console.log(req.body)
     const beforeUpdate = await Product.findOne({ where: { id } })
 
     if (!beforeUpdate) return res.status(400).json({ message: `This product is not found` })
 
-    if (name) {
-      if (name.trim() === "") return res.status(400).json({ message: `Product's name can not be blank` })
-    }
+
     if (price) {
       if (isNaN(price)) return res.status(400).json({ message: `Price must be integer` })
-      if (price.trim() === "") return res.status(400).json({ message: `Price can not be blank` })
+
     }
-    if (status) {
-      if (status.trim() === "") return res.status(400).json({ message: `Status can not be blank` })
-    }
+
 
     if (amount) {
       if (isNaN(amount)) return res.status(400).json({ message: `Amount must be integer` })
-      if (amount.trim() === "") return res.status(400).json({ message: `Amount can not be blank` })
+
     }
     if (supplierId) {
       if (isNaN(supplierId)) return res.status(400).json({ message: `Supplier Id must be integer` })
-      if (supplierId.trim() === "") return res.status(400).json({ message: `Amount can not be blank` })
+
     }
     const sendData = {
       name: name || beforeUpdate.name,
@@ -118,7 +116,7 @@ async function editProduct(req, res, next) {
       picture: picture || beforeUpdate.picture
     }
 
-    await Produt.update(sendData, { where: { id } })
+    await Product.update(sendData, { where: { id } })
     res.status(200).json({ message: `Updated` })
   } catch (err) {
     console.log(err)

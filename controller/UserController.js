@@ -3,11 +3,15 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const { SECRET_KEY, EXPIRE, SALT_ROUND } = process.env
 const ValidateError = require('../middlewares/ValidateError')
+const cloudinary = require('cloudinary').v2
+const fs = require('fs')
 
 
 async function signUp(req, res, next) {
 
-  const { name, userName, password, confirmPassword, email, address, phoneNumber } = req.body
+  const { path } = req.file
+  const { name, userName, password, confirmPassword, email, phoneNumber, address } = req.body
+
   const isEmail = /[^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+/;
   const isPassword = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$ %^&*-]).{8,}$/;
   const transaction = await sequelize.transaction()
@@ -28,33 +32,40 @@ async function signUp(req, res, next) {
   if (!isPassword.test(password)) throw new ValidateError(`Password must has minimum eight characters and at least one upper case English letter, one lower case English letter, one number and one special character`, 400)
 
   const hashPassword = await bcrypt.hash(password, parseInt(SALT_ROUND))
+
   try {
+    cloudinary.uploader.upload(path, async (err, result) => {
+      if (err) return next(err)
+      console.log(result)
+      const sendData = {
+        name,
+        userName,
+        password: hashPassword,
+        email,
+        address: address || 'Please insert your address',
+        phoneNumber,
+        isAdmin: 'Not admin',
+        status: 'Member',
+        picture: result.secure_url
+      }
 
-    const sendData = {
-      name,
-      userName,
-      password: hashPassword,
-      email,
-      address,
-      phoneNumber,
-      isAdmin: 'Not admin',
-      status: 'Member'
-    }
+      const data = await Customer.create(sendData, { transaction })
 
-    const data = await Customer.create(sendData, { transaction })
 
-    const payload = {
-      id: data.id,
-      name: data.name,
-      userName: data.username,
-      isAdmin: data.isAdmin
-    }
+      fs.unlinkSync(path)
+      const payload = {
+        id: data.id,
+        name: data.name,
+        userName: data.username,
+        isAdmin: data.isAdmin
+      }
 
-    const token = jwt.sign(payload, SECRET_KEY, { expiresIn: parseInt(EXPIRE) })
+      jwt.sign(payload, SECRET_KEY, { expiresIn: parseInt(EXPIRE) })
 
-    await transaction.commit()
+      await transaction.commit()
 
-    res.status(200).json({ message: `Register successfully`, data, token })
+      res.status(200).json({ message: `Register successfully` })
+    })
 
   } catch (err) {
     transaction.rollback()
@@ -116,6 +127,7 @@ async function editProfile(req, res, next) {
 
 
     const { name, userName, oldpassword, newpassword, confirmPassword, email, address, phoneNumber, status, isAdmin, id } = req.body
+
     const isEmail = /[^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+/;
     const isPassword = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$ %^&*-]).{8,}$/;
     let beforeUpdate;
@@ -154,6 +166,7 @@ async function editProfile(req, res, next) {
       if (!oldpassword) return res.status(400).json({ message: `Old password is required` })
       if (!isPassword.test(newpassword)) return res.status(400).json({ message: `Password must has minimum eight characters and at least one upper case English letter, one lower case English letter, one number and one special character` })
       const isMatch = await bcrypt.compare(oldpassword, beforeUpdate.password)
+
       if (!isMatch) return res.status(400).json({ message: `Please check old password` })
 
       newHashPassword = await bcrypt.hash(newpassword, parseInt(SALT_ROUND))
@@ -191,7 +204,7 @@ async function getUserBy(req, res, next) {
     const { sort, item, desc, single, lim } = req.query
 
     const { isAdmin } = req.payload
-
+    console.log(isAdmin)
 
     if (isAdmin !== "Admin") return res.status(400).json({ messag: `You are not admin` })
 
@@ -248,10 +261,30 @@ async function getMe(req, res, next) {
   }
 }
 
+async function editPicturProfile(req, res, next) {
+  const { id } = req.user
+  const { path } = req.file
+  try {
+    cloudinary.uploader.upload(path, async (err, result) => {
+      if (err) return next(err)
+      const sendData = {
+        picture: result.secure_url
+      }
+      await Customer.update(sendData, { where: { id } })
+
+      res.status(200).json({ messag: `Updated` })
+    })
+  } catch (err) {
+    next(err);
+  }
+
+
+}
 module.exports = {
   signUp,
   signIn,
   editProfile,
   getUserBy,
-  getMe
+  getMe,
+  editPicturProfile
 }
