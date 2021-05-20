@@ -1,4 +1,4 @@
-const { sequelize, Order, OrderItem, Product } = require('../models')
+const { sequelize, Order, OrderItem, Product, Customer, Transport, Payment } = require('../models')
 const { Op } = require('sequelize')
 const ValidateError = require('../middlewares/ValidateError')
 
@@ -7,7 +7,7 @@ async function createOrder(req, res, next) {
   const transaction = await sequelize.transaction()
   try {
 
-    // const { id } = req.user
+    const { id } = req.user
     const { deliveryAddress, item, transportId } = req.body
 
 
@@ -20,7 +20,7 @@ async function createOrder(req, res, next) {
       deliveryAddress,
       transportId,
       orderStatus: 'Placed Order',
-      customerId: 1,
+      customerId: id,
     }
 
     const order = await Order.create(sendData)
@@ -50,6 +50,7 @@ async function updateOrder(req, res, next) {
   const transaction = await sequelize.transaction()
 
   try {
+    console.log(req.body)
     const { id } = req.params
     const { orderStatus, trackingNumber, deliveryAddress, transportId, item } = req.body
     const beforeUpdateOrder = await Order.findOne({ where: { id } })
@@ -63,9 +64,11 @@ async function updateOrder(req, res, next) {
       if (deliveryAddress.trim() === "") return res.status(400).json({ message: `Delivery Address can not be blank` })
     }
 
-    // if (trackingNumber) {
-    //   const trackingNumber = Order.findOne({ where: { trackingNumber } })
-    // }
+    if (trackingNumber) {
+      const track = await Order.findOne({ where: { trackingNumber } })
+
+      if (track) throw new ValidateError('This tracking number is used', 400)
+    }
     const sendData = {
       orderStatus: orderStatus || beforeUpdateOrder.orderStatus,
       trackingNumber: trackingNumber || beforeUpdateOrder.trackingNumber,
@@ -102,17 +105,22 @@ async function updateOrder(req, res, next) {
 }
 async function getOrderBy(req, res, next) {
   try {
-    const { sort, item, desc, single, lim } = req.query
-
+    console.log(req.query)
+    const { sort, item, desc, single, lim, me } = req.query
+    const { id } = req.user
     let search = {
       where: {
-        [Op.or]: [{ orderStatus: 'Placed Order' }, { orderStatus: "Paid" }, { orderStatus: `Ready To ship` }, { orderStatus: 'In transit' }]
+        [Op.or]: [{ orderStatus: 'Placed Order' }, { orderStatus: "Paid" }, { orderStatus: `Ready To ship` }, { orderStatus: 'In transit' }, { orderStatus: 'Delivered' }]
       },
       include: [{
         model: OrderItem, as: 'detail',
         attributes: ['price', 'discount', 'amount'],
-        include: [{ model: Product, attributes: ['name'] }]
-      }]
+        include: [{ model: Product, attributes: ['name'] },],
+      },
+      { model: Customer, attributes: ['userName'] },
+      { model: Transport, attributes: ['name'] },
+      { model: Payment }
+      ]
     }
 
 
@@ -124,6 +132,11 @@ async function getOrderBy(req, res, next) {
       id: `${single}`
     }
 
+    if (me) {
+      search.where = {
+        customerId: me
+      }
+    }
     sort ? condition = { ...search, order: [[`${item}`, desc ? "DESC" : "ASC"]], limit: lim ? +lim : null } : condition = { ...search }
 
     single ? data = await Order.findOne(condition) : data = await Order.findAll(condition)

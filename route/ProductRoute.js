@@ -3,8 +3,9 @@ const router = express.Router()
 const productControl = require('../controller/ProductController')
 const protect = require('../middlewares/protect')
 const upload = require('../middlewares/upload')
-router.get('/', productControl.getProductBy)
+router.get('/', protect, productControl.getProductBy)
+router.get('/notoken', productControl.getProductBy)
 router.post('/register', protect, productControl.createProduct)
-router.put('/edit/:id', protect, productControl.editProduct)
+router.put('/edit/:id', protect, upload.single('image'), productControl.editProduct)
 
 module.exports = router

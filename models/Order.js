@@ -4,12 +4,13 @@ module.exports = (sequelize, DataTypes) => {
       orderStatus: {
         type: DataTypes.ENUM(
           {
-            values: [`Placed Order`, `Paid`, `Ready To ship`, 'In transit', 'Delivered', 'Cancelled']
+            values: [`Placed Order`, `Paid`, 'In transit', 'Delivered', 'Cancelled']
           }),
         allowNull: false
       },
       trackingNumber: { type: DataTypes.STRING, unique: true },
-      deliveryAddress: { type: DataTypes.STRING, allowNull: false }
+      deliveryAddress: { type: DataTypes.STRING, allowNull: false },
+
 
     },
     {
@@ -44,6 +45,14 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: 'RESTRICT',
         onUpdate: 'RESTRICT'
       })
+    Order.hasOne(models.Payment, {
+      foreignKey: {
+        name: 'orderId',
+        allowNull: false
+      },
+      onUpdate: 'RESTRICT',
+      onDelete: 'RESTRICT',
+    })
   }
   return Order
 }

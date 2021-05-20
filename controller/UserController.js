@@ -9,34 +9,67 @@ const fs = require('fs')
 
 async function signUp(req, res, next) {
 
-  const { path } = req.file
+  req.file ? { path } = req.file : path = ""
   const { name, userName, password, confirmPassword, email, phoneNumber, address } = req.body
 
   const isEmail = /[^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+/;
   const isPassword = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$ %^&*-]).{8,}$/;
   const transaction = await sequelize.transaction()
 
-  if (!name) throw new ValidateError(`Your name is required`, 400)
-  if (name.trim() === "") throw new ValidateError(`Your name can not be blank`, 400)
-  if (!userName) throw new ValidateError(`Username is required`, 400)
-  if (userName.trim() === "") throw new ValidateError(`Username can not be blank`, 400)
-  if (!password) throw new ValidateError(`Password is required`, 400)
-  if (password.trim() === "") throw new ValidateError(`Password can not be blank`, 400)
-  if (!confirmPassword) throw new ValidateError(`Confirm password is required`, 400)
-  if (password !== confirmPassword) throw new ValidateError(`Confirm password must match with password`, 400)
-  if (!email) throw new ValidateError(`Your email is required`, 400)
-  if (email.trim() === "") throw new ValidateError(`Email can not be blank`, 400)
-  if (!phoneNumber) throw new ValidateError(`Your phone number is required`, 400)
-  if (isNaN(phoneNumber)) throw new ValidateError(`Your phone number must be number`, 400)
-  if (!isEmail.test(email)) throw new ValidateError('Please check your email', 400)
-  if (!isPassword.test(password)) throw new ValidateError(`Password must has minimum eight characters and at least one upper case English letter, one lower case English letter, one number and one special character`, 400)
 
   const hashPassword = await bcrypt.hash(password, parseInt(SALT_ROUND))
 
   try {
-    cloudinary.uploader.upload(path, async (err, result) => {
-      if (err) return next(err)
-      console.log(result)
+
+    if (!name) throw new ValidateError("Your name is required", 400)
+    if (name.trim() === "") throw new ValidateError('Your name can not be blank', 400)
+    if (!userName) throw new ValidateError(`Username is required`, 400)
+    if (userName.trim() === "") throw new ValidateError(`Username can not be blank`, 400)
+    if (!password) throw new ValidateError(`Password is required`, 400)
+    if (password.trim() === "") throw new ValidateError(`Password can not be blank`, 400)
+    if (!confirmPassword) throw new ValidateError(`Confirm password is required`, 400)
+    if (password !== confirmPassword) throw new ValidateError(`Confirm password must match with password`, 400)
+    if (!email) throw new ValidateError(`Your email is required`, 400)
+    if (email.trim() === "") throw new ValidateError(`Email can not be blank`, 400)
+    if (!phoneNumber) throw new ValidateError(`Your phone number is required`, 400)
+    if (isNaN(phoneNumber)) throw new ValidateError(`Your phone number must be number`, 400)
+    if (!isEmail.test(email)) throw new ValidateError('Please check your email', 400)
+    if (!isPassword.test(password)) throw new ValidateError(`Password must has minimum eight characters and at least one upper case English letter, one lower case English letter, one number and one special character`, 400)
+
+    if (path) {
+      cloudinary.uploader.upload(path, async (err, result) => {
+        if (err) return next(err)
+        console.log(result)
+        const sendData = {
+          name,
+          userName,
+          password: hashPassword,
+          email,
+          address: address || 'Please insert your address',
+          phoneNumber,
+          isAdmin: 'Not admin',
+          status: 'Member',
+          picture: result.secure_url || ""
+        }
+
+        const data = await Customer.create(sendData, { transaction })
+
+
+        fs.unlinkSync(path)
+        const payload = {
+          id: data.id,
+          name: data.name,
+          userName: data.username,
+          isAdmin: data.isAdmin
+        }
+
+        jwt.sign(payload, SECRET_KEY, { expiresIn: parseInt(EXPIRE) })
+
+        await transaction.commit()
+
+        res.status(200).json({ message: `Register successfully` })
+      })
+    } else {
       const sendData = {
         name,
         userName,
@@ -46,13 +79,13 @@ async function signUp(req, res, next) {
         phoneNumber,
         isAdmin: 'Not admin',
         status: 'Member',
-        picture: result.secure_url
+
       }
 
       const data = await Customer.create(sendData, { transaction })
 
 
-      fs.unlinkSync(path)
+
       const payload = {
         id: data.id,
         name: data.name,
@@ -65,7 +98,8 @@ async function signUp(req, res, next) {
       await transaction.commit()
 
       res.status(200).json({ message: `Register successfully` })
-    })
+    }
+
 
   } catch (err) {
     transaction.rollback()
